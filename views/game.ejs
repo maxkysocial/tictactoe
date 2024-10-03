@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tic-Tac-Toe</title>
+  <style>
+    .board { display: grid; grid-template-columns: repeat(3, 100px); gap: 10px; }
+    .cell { width: 100px; height: 100px; border: 1px solid black; text-align: center; line-height: 100px; font-size: 2em; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>Welcome, <%= user.displayName %>!</h1>
+  <div id="score"><h2>Your Score: <%= user.score %></h2></div>
+  <button onclick="logout()">Logout</button>
+  
+  <div class="board">
+    <div class="cell" data-id="0"></div>
+    <div class="cell" data-id="1"></div>
+    <div class="cell" data-id="2"></div>
+    <div class="cell" data-id="3"></div>
+    <div class="cell" data-id="4"></div>
+    <div class="cell" data-id="5"></div>
+    <div class="cell" data-id="6"></div>
+    <div class="cell" data-id="7"></div>
+    <div class="cell" data-id="8"></div>
+  </div>
+
+  <p id="message"></p>
+
+  <div id="scoreboard"></div>
+    <h2>Scoreboard</h2>
+    <ul id="score-list"></ul>
+</div>
+
+  <script>
+    let board = Array(9).fill(null);
+    let currentPlayer = 'X';
+    const cells = document.querySelectorAll('.cell');
+    const message = document.getElementById('message');
+
+    cells.forEach(cell => {
+      cell.addEventListener('click', () => {
+        const id = cell.getAttribute('data-id');
+        if (!board[id]) {
+          board[id] = currentPlayer;
+          cell.textContent = currentPlayer;
+          if (checkWinner(currentPlayer)) {
+            message.textContent = `Player ${currentPlayer} wins!`;
+            sendResult('win');
+          } else if (board.every(cell => cell)) {
+            message.textContent = 'It\'s a draw!';
+            resetBoard();
+          } else {
+            currentPlayer = 'O';
+            botMove();
+          }
+        }
+      });
+    });
+
+    function botMove() {
+      const emptyCells = board.map((val, index) => val === null ? index : null).filter(val => val !== null);
+      const randomIndex = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+      board[randomIndex] = 'O';
+      cells[randomIndex].textContent = 'O';
+
+      if (checkWinner('O')) {
+        message.textContent = 'Bot wins!';
+        sendResult('lose');
+      } else {
+        currentPlayer = 'X';
+      }
+    }
+
+    function checkWinner(player) {
+      const winPatterns = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8],
+        [0, 3, 6], [1, 4, 7], [2, 5, 8],
+        [0, 4, 8], [2, 4, 6]
+      ];
+      return winPatterns.some(pattern => pattern.every(index => board[index] === player));
+    }
+
+
+    // เรียกใช้ fetchScore() ทุกครั้งที่ทำการเล่นเกมเสร็จ
+    async function fetchScore() {
+            try {
+                const response = await fetch('/score');
+                const data = await response.json();
+                console.log('Fetched score:', data.score);
+                document.getElementById('score').innerText = `Your Score: ${data.score}`; // ตรวจสอบว่า element นี้มีอยู่
+            } catch (error) {
+                console.error('Error fetching score:', error);
+            }
+    }
+
+    async function fetchScores() {
+        try {
+            const response = await fetch('/leaderboard');
+            const scores = await response.json();
+            const scoreList = document.getElementById('score-list');
+            scoreList.innerHTML = ''; // ล้างรายการก่อนหน้า
+
+            console.log(scores);
+
+            scores.scoreAll.forEach(score => {
+                const li = document.createElement('li');
+                li.innerText = `${score.displayName}: ${score.score} points`;
+                scoreList.appendChild(li);
+            });
+        } catch (error) {
+            console.error('Error fetching scores:', error);
+        }
+    }
+
+    function logout() {
+        fetch('/logout', {
+            method: 'GET',
+            credentials: 'include' // รวมข้อมูล session
+        })
+        .then(() => {
+            window.location.href = '/'; // Redirect ไปหน้าหลักหลังออกจากระบบ
+        })
+        .catch(error => console.error('Error logging out:', error));
+    }
+
+    
+    function resetBoard() {
+      setTimeout(() => {
+        board.fill(null);
+        cells.forEach(cell => cell.textContent = '');
+        currentPlayer = 'X';
+      }, 2000);
+
+      fetchScore()
+      fetchScores()
+    }
+
+    function sendResult(result) {
+        console.log('Sending result:', result); // ตรวจสอบค่าที่ส่งออกไป
+        fetch('/game', {
+            method: 'POST',
+            headers: { 
+            'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify({ result })
+        }).then(() => resetBoard());
+
+
+    }
+
+    document.addEventListener('DOMContentLoaded', (event) => {
+            fetchScore(); // เรียกฟังก์ชันเมื่อ DOM โหลดเสร็จ
+            fetchScores(); // เรียกฟังก์ชันเมื่อ DOM โหลดเสร็จ
+        });
+  </script>
+</body>
+</html>
